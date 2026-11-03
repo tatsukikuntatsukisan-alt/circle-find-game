@@ -102,13 +102,7 @@
   let isAnswered = false;
 
   const lineColors = [
-    '#f57c00', // オレンジ
-    '#1976d2', // ブルー
-    '#c2185b', // ピンク
-    '#7b1fa2', // パープル
-    '#388e3c', // グリーン
-    '#0097a7', // シアン
-    '#e65100'  // ディープオレンジ
+    '#f57c00', '#1976d2', '#c2185b', '#7b1fa2', '#388e3c', '#0097a7', '#e65100'
   ];
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -178,12 +172,19 @@
     const correctIndex = Math.floor(Math.random() * count);
 
     for (let i = 0; i < count; i++) {
-      const baseR = 20 + Math.random() * 65;
-      const padding = 30;
-      const x = padding + Math.random() * (canvas.width - padding * 2);
-      const y = padding + Math.random() * (canvas.height - padding * 2);
-
       const isCorrect = (i === correctIndex);
+      
+      // 正円は特大サイズ（半径 up to 180px）で画面端からはみ出るパターンも生成
+      let baseR = 20 + Math.random() * 65;
+      if (isCorrect && Math.random() > 0.4) {
+        baseR = 70 + Math.random() * 110; // 大きめの正円
+      }
+
+      // 画面の少し外側（端から最大半径の半分程度外）まで配置可能にする
+      const margin = baseR * 0.6;
+      const x = -margin + Math.random() * (canvas.width + margin * 2);
+      const y = -margin + Math.random() * (canvas.height + margin * 2);
+
       let rx = baseR, ry = baseR;
 
       if (!isCorrect) {
@@ -246,8 +247,10 @@
     const tapX = clientX - rect.left;
     const tapY = clientY - rect.top;
 
-    let tappedIndex = -1;
-    for (let i = shapes.length - 1; i >= 0; i--) {
+    let hitCorrect = false;
+    let hitIndex = -1;
+
+    for (let i = 0; i < shapes.length; i++) {
       const s = shapes[i];
       const dx = tapX - s.x;
       const dy = tapY - s.y;
@@ -256,25 +259,30 @@
       const rx = dx * cos - dy * sin;
       const ry = dx * sin + dy * cos;
 
+      // タップ地点が図形の範囲内か判定
       if ((rx * rx) / (s.rx * s.rx) + (ry * ry) / (s.ry * s.ry) <= 1) {
-        tappedIndex = i;
-        break;
+        if (s.isCorrect) {
+          hitCorrect = true;
+          break;
+        } else {
+          hitIndex = i;
+        }
       }
     }
 
-    if (tappedIndex === -1) return;
-
     isAnswered = true;
-    const tapped = shapes[tappedIndex];
 
-    if (tapped.isCorrect) {
-      msg.textContent = '🎉 大あたり！これが ほんとうの「まんまる」！';
+    if (hitCorrect) {
+      msg.textContent = '🎉 大あたり！画面からはみ出た「大きな正円」を発見！';
       playSound('correct');
       drawShapes();
-    } else {
+    } else if (hitIndex !== -1) {
       msg.textContent = 'おしい！それは ちょっとだけ ゆがんでいるよ！';
       playSound('wrong');
-      drawShapes(tappedIndex);
+      drawShapes(hitIndex);
+    } else {
+      isAnswered = false;
+      return;
     }
 
     nextBtn.style.display = 'inline-block';
@@ -291,7 +299,6 @@
     if (shapes.length > 0) drawShapes();
   });
 
-  // ロード待ちをせず即座に1問目をスタート
   nextQuestion();
 </script>
 
