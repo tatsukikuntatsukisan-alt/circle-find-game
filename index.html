@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ほんとうの「円」をさがせ！</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      font-family: "Hiragino Sans", "Meiryo", sans-serif;
+      background-color: #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    .container {
+      width: 100%;
+      max-width: 550px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+      text-align: center;
+    }
+    .header-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    h1 { font-size: 1.2rem; color: #333; }
+    .q-count {
+      font-size: 0.95rem;
+      font-weight: bold;
+      background: #e3f2fd;
+      color: #1976d2;
+      padding: 4px 12px;
+      border-radius: 12px;
+    }
+    .msg { font-size: 1.1rem; font-weight: bold; color: #2196f3; margin-bottom: 12px; min-height: 1.5em; }
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      margin: 10px 0;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      touch-action: none;
+      background: #ffffff;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: pointer;
+    }
+    .btn {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      margin-top: 12px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    }
+    .btn:active { transform: scale(0.98); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-info">
+    <h1>🔍 ほんとうの「円」をさがせ！</h1>
+    <div class="q-count" id="qCount">だい 1 問</div>
+  </div>
+  <div class="msg" id="msg">1つだけある「まんまる（正円）」をえらんでね！</div>
+  
+  <div class="canvas-wrapper" id="wrapper">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;">つぎの問題へ！</button>
+</div>
+
+<script>
+  const wrapper = document.getElementById('wrapper');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const msg = document.getElementById('msg');
+  const nextBtn = document.getElementById('nextBtn');
+  const qCountEl = document.getElementById('qCount');
+
+  let questionNumber = 0;
+  let shapes = [];
+  let isAnswered = false;
+
+  // 音声合成（Web Audio API）
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  function playSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+
+    if (type === 'correct') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880.00, now + 0.12);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } else {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.setValueAtTime(120, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    }
+  }
+
+  function resizeCanvas() {
+    const rect = wrapper.getBoundingClientRect();
+    if (rect.width === 0) return;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    drawShapes();
+  }
+
+  function nextQuestion() {
+    isAnswered = false;
+    nextBtn.style.display = 'none';
+    questionNumber++;
+    qCountEl.textContent = `だい ${questionNumber} 問`;
+    msg.textContent = '1つだけある「まんまる（正円）」をえらんでね！';
+
+    if (canvas.width === 0) {
+      const rect = wrapper.getBoundingClientRect();
+      canvas.width = rect.width || 400;
+      canvas.height = rect.height || 300;
+    }
+
+    generateShapes();
+    drawShapes();
+  }
+
+  function generateShapes() {
+    shapes = [];
+    let count = 5; // 1~5問目は5個
+    let distortionMin = 0.25; // 歪みの大きさ
+
+    if (questionNumber > 10) {
+      count = 10;
+      distortionMin = 0.08; // 超おしい歪み
+    } else if (questionNumber > 5) {
+      count = 7;
+      distortionMin = 0.15;
+    }
+
+    const padding = 50;
+    const correctIndex = Math.floor(Math.random() * count);
+
+    for (let i = 0; i < count; i++) {
+      let placed = false;
+      let attempts = 0;
+
+      while (!placed && attempts < 100) {
+        attempts++;
+        const r = 30 + Math.random() * 15;
+        const x = padding + Math.random() * (canvas.width - padding * 2);
+        const y = padding + Math.random() * (canvas.height - padding * 2);
+
+        // 重なり判定
+        let overlap = false;
+        for (let s of shapes) {
+          if (Math.hypot(s.x - x, s.y - y) < s.r + r + 20) {
+            overlap = true;
+            break;
+          }
+        }
+
+        if (!overlap) {
+          const isCorrect = (i === correctIndex);
+          let rx = r, ry = r;
+
+          if (!isCorrect) {
+            // 正円じゃない図形（縦長・横長の楕円）
+            const factor = 1 + (Math.random() > 0.5 ? 1 : -1) * (distortionMin + Math.random() * 0.2);
+            rx = r * factor;
+            ry = r / factor;
+          }
+
+          shapes.push({
+            x, y, r, rx, ry,
+            isCorrect,
+            rotation: isCorrect ? 0 : Math.random() * Math.PI,
+            color: isCorrect ? '#ff9800' : '#42a5f5'
+          });
+          placed = true;
+        }
+      }
+    }
+  }
+
+  function drawShapes(highlightIndex = -1) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    shapes.forEach((s, idx) => {
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.rotation);
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s.rx, s.ry, 0, 0, Math.PI * 2);
+
+      if (isAnswered && s.isCorrect) {
+        ctx.fillStyle = '#c8e6c9'; // 正解の円を明るい緑に
+        ctx.strokeStyle = '#2e7d32';
+        ctx.lineWidth = 5;
+      } else if (highlightIndex === idx) {
+        ctx.fillStyle = '#ffcdd2'; // 誤タップした図形をピンクに
+        ctx.strokeStyle = '#c62828';
+        ctx.lineWidth = 4;
+      } else {
+        ctx.fillStyle = '#fff3e0';
+        ctx.strokeStyle = '#ffa726';
+        ctx.
