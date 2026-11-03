@@ -157,57 +157,45 @@
 
   function generateShapes() {
     shapes = [];
-    let count = 5;
+    let count = 6;
     let distortionMin = 0.25;
 
     if (questionNumber > 10) {
-      count = 10;
+      count = 14;
       distortionMin = 0.08;
     } else if (questionNumber > 5) {
-      count = 7;
+      count = 9;
       distortionMin = 0.15;
     }
 
-    const padding = 50;
+    const padding = 60;
     const correctIndex = Math.floor(Math.random() * count);
 
     for (let i = 0; i < count; i++) {
-      let placed = false;
-      let attempts = 0;
+      // 大小様々なバリエーション（半径 20px〜65px）
+      const baseR = 20 + Math.random() * 45;
+      const x = padding + Math.random() * (canvas.width - padding * 2);
+      const y = padding + Math.random() * (canvas.height - padding * 2);
 
-      while (!placed && attempts < 100) {
-        attempts++;
-        const r = 28 + Math.random() * 12;
-        const x = padding + Math.random() * (canvas.width - padding * 2);
-        const y = padding + Math.random() * (canvas.height - padding * 2);
+      const isCorrect = (i === correctIndex);
+      let rx = baseR, ry = baseR;
 
-        let overlap = false;
-        for (let s of shapes) {
-          if (Math.hypot(s.x - x, s.y - y) < s.r + r + 20) {
-            overlap = true;
-            break;
-          }
-        }
-
-        if (!overlap) {
-          const isCorrect = (i === correctIndex);
-          let rx = r, ry = r;
-
-          if (!isCorrect) {
-            const factor = 1 + (Math.random() > 0.5 ? 1 : -1) * (distortionMin + Math.random() * 0.2);
-            rx = r * factor;
-            ry = r / factor;
-          }
-
-          shapes.push({
-            x, y, r, rx, ry,
-            isCorrect,
-            rotation: isCorrect ? 0 : Math.random() * Math.PI
-          });
-          placed = true;
-        }
+      if (!isCorrect) {
+        // 縦長・横長の歪み
+        const factor = 1 + (Math.random() > 0.5 ? 1 : -1) * (distortionMin + Math.random() * 0.25);
+        rx = baseR * factor;
+        ry = baseR / factor;
       }
+
+      shapes.push({
+        x, y, r: baseR, rx, ry,
+        isCorrect,
+        rotation: isCorrect ? 0 : Math.random() * Math.PI
+      });
     }
+
+    // 重なる順番（描画順）をシャッフルして、正円が前面に来たり奥に隠れたりするように設定
+    shapes.sort(() => Math.random() - 0.5);
   }
 
   function drawShapes(highlightIndex = -1) {
@@ -222,15 +210,18 @@
       ctx.ellipse(0, 0, s.rx, s.ry, 0, 0, Math.PI * 2);
 
       if (isAnswered && s.isCorrect) {
-        ctx.fillStyle = '#c8e6c9';
+        // 正解したときは緑色で光る
+        ctx.fillStyle = 'rgba(200, 230, 201, 0.9)';
         ctx.strokeStyle = '#2e7d32';
         ctx.lineWidth = 5;
       } else if (highlightIndex === idx) {
-        ctx.fillStyle = '#ffcdd2';
+        // お手つきした図形は赤っぽく表示
+        ctx.fillStyle = 'rgba(255, 205, 210, 0.9)';
         ctx.strokeStyle = '#c62828';
         ctx.lineWidth = 4;
       } else {
-        ctx.fillStyle = '#fff3e0';
+        // 重なりが見えやすいよう、少し透け感のある塗りつぶしにする
+        ctx.fillStyle = 'rgba(255, 243, 224, 0.85)';
         ctx.strokeStyle = '#ffa726';
         ctx.lineWidth = 3.5;
       }
@@ -251,10 +242,19 @@
     const tapX = clientX - rect.left;
     const tapY = clientY - rect.top;
 
+    // 前面（配列の後ろ）にある図形から優先的にタップ判定
     let tappedIndex = -1;
-    for (let i = 0; i < shapes.length; i++) {
+    for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i];
-      if (Math.hypot(tapX - s.x, tapY - s.y) <= Math.max(s.rx, s.ry)) {
+      // 簡易的な楕円内のヒット判定
+      const dx = tapX - s.x;
+      const dy = tapY - s.y;
+      const cos = Math.cos(-s.rotation);
+      const sin = Math.sin(-s.rotation);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+
+      if ((rx * rx) / (s.rx * s.rx) + (ry * ry) / (s.ry * s.ry) <= 1) {
         tappedIndex = i;
         break;
       }
