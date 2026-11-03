@@ -158,15 +158,21 @@
 
   function generateShapes() {
     shapes = [];
-    let count = 8;
-    let distortionMin = 0.3;
+    let count, distortionMin;
 
-    if (questionNumber > 10) {
+    // 【難易度切り替え】
+    if (questionNumber <= 10) {
+      // 序盤10問：すっきり簡単モード
+      count = 5 + Math.floor(Math.random() * 3); // 5〜7個
+      distortionMin = 0.25;
+    } else if (questionNumber <= 15) {
+      // 中盤：少し複雑モード
+      count = 10;
+      distortionMin = 0.15;
+    } else {
+      // 後半：がっつり難問モード（大量＆特大サイズ）
       count = 18;
       distortionMin = 0.08;
-    } else if (questionNumber > 5) {
-      count = 12;
-      distortionMin = 0.18;
     }
 
     const correctIndex = Math.floor(Math.random() * count);
@@ -176,16 +182,22 @@
       let baseR, x, y;
 
       if (isCorrect) {
-        // 【重要】正円は必ず「超特大サイズ」にして、画面からはみ出るように配置する
-        const minDim = Math.min(canvas.width, canvas.height);
-        baseR = minDim * (0.65 + Math.random() * 0.45); // キャンバスの65%〜110%の半径
-        
-        // 中心座標を画面の端や外側に逃がし、確実に一部だけが見えるようにする
-        x = canvas.width * (0.1 + Math.random() * 0.8);
-        y = canvas.height * (0.1 + Math.random() * 0.8);
+        if (questionNumber <= 10) {
+          // 序盤10問：正円は必ず画面内にきれいに収まるサイズ
+          baseR = 30 + Math.random() * 35; // 半径30〜65px
+          const padding = baseR + 15;
+          x = padding + Math.random() * (canvas.width - padding * 2);
+          y = padding + Math.random() * (canvas.height - padding * 2);
+        } else {
+          // 11問目以降：画面からはみ出るほどの特大サイズが出現
+          const minDim = Math.min(canvas.width, canvas.height);
+          baseR = minDim * (0.6 + Math.random() * 0.5);
+          x = canvas.width * (0.1 + Math.random() * 0.8);
+          y = canvas.height * (0.1 + Math.random() * 0.8);
+        }
       } else {
-        // 周りの歪んだ楕円は通常のバラエティサイズ
-        baseR = 20 + Math.random() * 55;
+        // 周りの図形
+        baseR = 20 + Math.random() * 45;
         const padding = 20;
         x = padding + Math.random() * (canvas.width - padding * 2);
         y = padding + Math.random() * (canvas.height - padding * 2);
@@ -209,7 +221,7 @@
       });
     }
 
-    // 正円を配列の「最後（一番手前）」に移動させておくことで、描画・判定を確実に優遇
+    // 正円を一番手前に配置してヒット判定を優遇
     const correctObj = shapes.splice(correctIndex, 1)[0];
     shapes.push(correctObj);
   }
@@ -255,11 +267,9 @@
     const tapX = clientX - rect.left;
     const tapY = clientY - rect.top;
 
-    // 【超重要】まず最初に「正円」をタップしたかどうかを最優先で厳格に判定する！
     let tappedCorrect = false;
     let tappedWrongIndex = -1;
 
-    // 配列の最後にある（＝一番手前にある）正円を真っ先にチェック
     const correctShape = shapes.find(s => s.isCorrect);
     if (correctShape) {
       const dx = tapX - correctShape.x;
@@ -270,15 +280,14 @@
       const ry = dx * sin + dy * cos;
 
       if ((rx * rx) / (correctShape.rx * correctShape.rx) + (ry * ry) / (correctShape.ry * correctShape.ry) <= 1) {
-        tappedCorrect = true; // 正円のエリアなら、他の何が重なっていても一発で正解！
+        tappedCorrect = true;
       }
     }
 
-    // 正円でなければ、ほかの図形をチェック
     if (!tappedCorrect) {
       for (let i = shapes.length - 1; i >= 0; i--) {
         const s = shapes[i];
-        if (s.isCorrect) continue; // 正円はすでにチェック済みなのでスキップ
+        if (s.isCorrect) continue;
 
         const dx = tapX - s.x;
         const dy = tapY - s.y;
@@ -297,7 +306,7 @@
     isAnswered = true;
 
     if (tappedCorrect) {
-      msg.textContent = '🎉 大あたり！大きな「正円」を見つけたね！';
+      msg.textContent = questionNumber > 10 ? '🎉 大あたり！隠れた大きな「正円」を発見！' : '🎉 大あたり！すごい！';
       playSound('correct');
       drawShapes();
     } else if (tappedWrongIndex !== -1) {
