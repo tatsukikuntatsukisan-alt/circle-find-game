@@ -80,7 +80,7 @@
     <h1>🔍 ほんとうの「円」をさがせ！</h1>
     <div class="q-count" id="qCount">だい 1 問</div>
   </div>
-  <div class="msg" id="msg">1つだけある「まんまる（正円）」をえらんでね！</div>
+  <div class="msg" id="msg">1つだけあるq「まんまる（正円）」をえらんでね！</div>
   
   <div class="canvas-wrapper" id="wrapper">
     <canvas id="gameCanvas"></canvas>
@@ -160,17 +160,13 @@
     shapes = [];
     let count, distortionMin;
 
-    // 【難易度切り替え】
     if (questionNumber <= 10) {
-      // 序盤10問：すっきり簡単モード
       count = 5 + Math.floor(Math.random() * 3); // 5〜7個
       distortionMin = 0.25;
     } else if (questionNumber <= 15) {
-      // 中盤：少し複雑モード
       count = 10;
       distortionMin = 0.15;
     } else {
-      // 後半：がっつり難問モード（大量＆特大サイズ）
       count = 18;
       distortionMin = 0.08;
     }
@@ -183,20 +179,21 @@
 
       if (isCorrect) {
         if (questionNumber <= 10) {
-          // 序盤10問：正円は必ず画面内にきれいに収まるサイズ
-          baseR = 30 + Math.random() * 35; // 半径30〜65px
+          // 序盤10問：完全に画面内に収まるサイズ
+          baseR = 30 + Math.random() * 35;
           const padding = baseR + 15;
           x = padding + Math.random() * (canvas.width - padding * 2);
           y = padding + Math.random() * (canvas.height - padding * 2);
         } else {
-          // 11問目以降：画面からはみ出るほどの特大サイズが出現
+          // 11問目以降：大きめの円だが、中心が画面内または近傍にあり「必ず4分の1以上は残る」ように制限
           const minDim = Math.min(canvas.width, canvas.height);
-          baseR = minDim * (0.6 + Math.random() * 0.5);
-          x = canvas.width * (0.1 + Math.random() * 0.8);
-          y = canvas.height * (0.1 + Math.random() * 0.8);
+          baseR = minDim * (0.4 + Math.random() * 0.35); // 程よい大きさに調整（大きすぎない）
+          
+          // はみ出しても全体の形（円らしさ）がしっかり分かるよう配置を制御
+          x = canvas.width * 0.2 + Math.random() * (canvas.width * 0.6);
+          y = canvas.height * 0.2 + Math.random() * (canvas.height * 0.6);
         }
       } else {
-        // 周りの図形
         baseR = 20 + Math.random() * 45;
         const padding = 20;
         x = padding + Math.random() * (canvas.width - padding * 2);
@@ -221,7 +218,6 @@
       });
     }
 
-    // 正円を一番手前に配置してヒット判定を優遇
     const correctObj = shapes.splice(correctIndex, 1)[0];
     shapes.push(correctObj);
   }
@@ -306,7 +302,7 @@
     isAnswered = true;
 
     if (tappedCorrect) {
-      msg.textContent = questionNumber > 10 ? '🎉 大あたり！隠れた大きな「正円」を発見！' : '🎉 大あたり！すごい！';
+      msg.textContent = questionNumber > 10 ? '🎉 大あたり！大きな「正円」を見つけたね！' : '🎉 大あたり！すごい！';
       playSound('correct');
       drawShapes();
     } else if (tappedWrongIndex !== -1) {
