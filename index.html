@@ -162,10 +162,10 @@
     let distortionMin = 0.3;
 
     if (questionNumber > 10) {
-      count = 20;
+      count = 18;
       distortionMin = 0.08;
     } else if (questionNumber > 5) {
-      count = 13;
+      count = 12;
       distortionMin = 0.18;
     }
 
@@ -173,17 +173,23 @@
 
     for (let i = 0; i < count; i++) {
       const isCorrect = (i === correctIndex);
-      
-      // 正円は特大サイズ（半径 up to 180px）で画面端からはみ出るパターンも生成
-      let baseR = 20 + Math.random() * 65;
-      if (isCorrect && Math.random() > 0.4) {
-        baseR = 70 + Math.random() * 110; // 大きめの正円
-      }
+      let baseR, x, y;
 
-      // 画面の少し外側（端から最大半径の半分程度外）まで配置可能にする
-      const margin = baseR * 0.6;
-      const x = -margin + Math.random() * (canvas.width + margin * 2);
-      const y = -margin + Math.random() * (canvas.height + margin * 2);
+      if (isCorrect) {
+        // 【重要】正円は必ず「超特大サイズ」にして、画面からはみ出るように配置する
+        const minDim = Math.min(canvas.width, canvas.height);
+        baseR = minDim * (0.65 + Math.random() * 0.45); // キャンバスの65%〜110%の半径
+        
+        // 中心座標を画面の端や外側に逃がし、確実に一部だけが見えるようにする
+        x = canvas.width * (0.1 + Math.random() * 0.8);
+        y = canvas.height * (0.1 + Math.random() * 0.8);
+      } else {
+        // 周りの歪んだ楕円は通常のバラエティサイズ
+        baseR = 20 + Math.random() * 55;
+        const padding = 20;
+        x = padding + Math.random() * (canvas.width - padding * 2);
+        y = padding + Math.random() * (canvas.height - padding * 2);
+      }
 
       let rx = baseR, ry = baseR;
 
@@ -203,7 +209,9 @@
       });
     }
 
-    shapes.sort(() => Math.random() - 0.5);
+    // 正円を配列の「最後（一番手前）」に移動させておくことで、描画・判定を確実に優遇
+    const correctObj = shapes.splice(correctIndex, 1)[0];
+    shapes.push(correctObj);
   }
 
   function drawShapes(highlightIndex = -1) {
@@ -247,39 +255,55 @@
     const tapX = clientX - rect.left;
     const tapY = clientY - rect.top;
 
-    let hitCorrect = false;
-    let hitIndex = -1;
+    // 【超重要】まず最初に「正円」をタップしたかどうかを最優先で厳格に判定する！
+    let tappedCorrect = false;
+    let tappedWrongIndex = -1;
 
-    for (let i = 0; i < shapes.length; i++) {
-      const s = shapes[i];
-      const dx = tapX - s.x;
-      const dy = tapY - s.y;
-      const cos = Math.cos(-s.rotation);
-      const sin = Math.sin(-s.rotation);
+    // 配列の最後にある（＝一番手前にある）正円を真っ先にチェック
+    const correctShape = shapes.find(s => s.isCorrect);
+    if (correctShape) {
+      const dx = tapX - correctShape.x;
+      const dy = tapY - correctShape.y;
+      const cos = Math.cos(-correctShape.rotation);
+      const sin = Math.sin(-correctShape.rotation);
       const rx = dx * cos - dy * sin;
       const ry = dx * sin + dy * cos;
 
-      // タップ地点が図形の範囲内か判定
-      if ((rx * rx) / (s.rx * s.rx) + (ry * ry) / (s.ry * s.ry) <= 1) {
-        if (s.isCorrect) {
-          hitCorrect = true;
+      if ((rx * rx) / (correctShape.rx * correctShape.rx) + (ry * ry) / (correctShape.ry * correctShape.ry) <= 1) {
+        tappedCorrect = true; // 正円のエリアなら、他の何が重なっていても一発で正解！
+      }
+    }
+
+    // 正円でなければ、ほかの図形をチェック
+    if (!tappedCorrect) {
+      for (let i = shapes.length - 1; i >= 0; i--) {
+        const s = shapes[i];
+        if (s.isCorrect) continue; // 正円はすでにチェック済みなのでスキップ
+
+        const dx = tapX - s.x;
+        const dy = tapY - s.y;
+        const cos = Math.cos(-s.rotation);
+        const sin = Math.sin(-s.rotation);
+        const rx = dx * cos - dy * sin;
+        const ry = dx * sin + dy * cos;
+
+        if ((rx * rx) / (s.rx * s.rx) + (ry * ry) / (s.ry * s.ry) <= 1) {
+          tappedWrongIndex = i;
           break;
-        } else {
-          hitIndex = i;
         }
       }
     }
 
     isAnswered = true;
 
-    if (hitCorrect) {
-      msg.textContent = '🎉 大あたり！画面からはみ出た「大きな正円」を発見！';
+    if (tappedCorrect) {
+      msg.textContent = '🎉 大あたり！大きな「正円」を見つけたね！';
       playSound('correct');
       drawShapes();
-    } else if (hitIndex !== -1) {
+    } else if (tappedWrongIndex !== -1) {
       msg.textContent = 'おしい！それは ちょっとだけ ゆがんでいるよ！';
       playSound('wrong');
-      drawShapes(hitIndex);
+      drawShapes(tappedWrongIndex);
     } else {
       isAnswered = false;
       return;
