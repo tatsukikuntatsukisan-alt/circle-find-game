@@ -164,10 +164,10 @@
       count = 5 + Math.floor(Math.random() * 3); // 5〜7個
       distortionMin = 0.25;
     } else if (questionNumber <= 15) {
-      count = 10;
+      count = 9 + Math.floor(Math.random() * 3); // 9〜11個
       distortionMin = 0.15;
     } else {
-      count = 16;
+      count = 14; // 多すぎない適度な重なり（14個）
       distortionMin = 0.08;
     }
 
@@ -178,28 +178,29 @@
       let baseR, x, y;
 
       if (isCorrect) {
-        if (questionNumber <= 10) {
-          // 序盤10問：画面内に100%きれいに収まる普通のサイズ
-          baseR = 30 + Math.random() * 30; // 半径 30〜60px
-          const padding = baseR + 20;
+        // 【11問目以降】たまに（約25%の確率で）少し見切れる問題、残り75%は完全表示の問題
+        const allowCut = (questionNumber > 10) && (Math.random() < 0.25);
+
+        if (allowCut) {
+          // はみ出る場合でも大きすぎないコンパクトなサイズ（半径 45px〜65px）
+          baseR = 45 + Math.random() * 20;
+          // 端に寄せるが、大半が画面内に残るように配置
+          const side = Math.floor(Math.random() * 4);
+          if (side === 0) { x = baseR * 0.3; y = canvas.height * 0.3 + Math.random() * (canvas.height * 0.4); } // 左端
+          else if (side === 1) { x = canvas.width - baseR * 0.3; y = canvas.height * 0.3 + Math.random() * (canvas.height * 0.4); } // 右端
+          else if (side === 2) { x = canvas.width * 0.3 + Math.random() * (canvas.width * 0.4); y = baseR * 0.3; } // 上端
+          else { x = canvas.width * 0.3 + Math.random() * (canvas.width * 0.4); y = canvas.height - baseR * 0.3; } // 下端
+        } else {
+          // 通常：画面内に100%きれいに収まる普通の正円（半径 25px〜50px）
+          baseR = 25 + Math.random() * 25;
+          const padding = baseR + 15;
           x = padding + Math.random() * (canvas.width - padding * 2);
           y = padding + Math.random() * (canvas.height - padding * 2);
-        } else {
-          // 11問目以降：少し大きめ（半径60〜110px）だが、必ず1/4以上の円弧が画面内に見える安全な配置
-          baseR = 60 + Math.random() * 50;
-          
-          // 中心座標を画面の端周辺（中心が画面外に出すぎない範囲）に制限
-          const margin = baseR * 0.5; // 円の半分以上は常に画面内に入るように固定
-          x = Math.random() * (canvas.width + margin * 2) - margin;
-          y = Math.random() * (canvas.height + margin * 2) - margin;
-
-          // 画面枠の範囲にしっかり収めるクランプ処理
-          x = Math.max(baseR * 0.2, Math.min(canvas.width - baseR * 0.2, x));
-          y = Math.max(baseR * 0.2, Math.min(canvas.height - baseR * 0.2, y));
         }
       } else {
-        baseR = 25 + Math.random() * 45;
-        const padding = 20;
+        // 周りの歪んだ楕円（半径 20px〜50px）
+        baseR = 20 + Math.random() * 30;
+        const padding = 15;
         x = padding + Math.random() * (canvas.width - padding * 2);
         y = padding + Math.random() * (canvas.height - padding * 2);
       }
@@ -306,7 +307,7 @@
     isAnswered = true;
 
     if (tappedCorrect) {
-      msg.textContent = questionNumber > 10 ? '🎉 大あたり！隠れた正円を見つけたね！' : '🎉 大あたり！すごい！';
+      msg.textContent = '🎉 大あたり！ほんとうの「正円」を発見！';
       playSound('correct');
       drawShapes();
     } else if (tappedWrongIndex !== -1) {
