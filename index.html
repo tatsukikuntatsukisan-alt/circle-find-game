@@ -101,6 +101,17 @@
   let shapes = [];
   let isAnswered = false;
 
+  // カラーパレット（様々な明るい色）
+  const colorPalette = [
+    { fill: 'rgba(255, 152, 0, 0.65)', stroke: '#f57c00' }, // オレンジ
+    { fill: 'rgba(33, 150, 243, 0.65)', stroke: '#1976d2' }, // ブルー
+    { fill: 'rgba(233, 30, 99, 0.65)',  stroke: '#c2185b' }, // ピンク
+    { fill: 'rgba(156, 39, 176, 0.65)', stroke: '#7b1fa2' }, // パープル
+    { fill: 'rgba(76, 175, 80, 0.65)',  stroke: '#388e3c' }, // グリーン
+    { fill: 'rgba(255, 235, 59, 0.7)',  stroke: '#fbc02d' }, // イエロー
+    { fill: 'rgba(0, 188, 212, 0.65)',  stroke: '#0097a7' }  // シアン
+  ];
+
   // Web Audio APIによる効果音
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -157,23 +168,26 @@
 
   function generateShapes() {
     shapes = [];
-    let count = 6;
-    let distortionMin = 0.25;
+    // 個数も大胆に増量
+    let count = 8;
+    let distortionMin = 0.3;
 
     if (questionNumber > 10) {
-      count = 14;
-      distortionMin = 0.08;
+      count = 18;
+      distortionMin = 0.08; // 後半は超微小な歪み
     } else if (questionNumber > 5) {
-      count = 9;
-      distortionMin = 0.15;
+      count = 12;
+      distortionMin = 0.18;
     }
 
-    const padding = 60;
     const correctIndex = Math.floor(Math.random() * count);
 
     for (let i = 0; i < count; i++) {
-      // 大小様々なバリエーション（半径 20px〜65px）
-      const baseR = 20 + Math.random() * 45;
+      // 大小極端なサイズ変化（半径 15px 〜 80px）
+      const baseR = 15 + Math.random() * 65;
+      
+      // 画面全体に散りばめる
+      const padding = 30;
       const x = padding + Math.random() * (canvas.width - padding * 2);
       const y = padding + Math.random() * (canvas.height - padding * 2);
 
@@ -181,20 +195,24 @@
       let rx = baseR, ry = baseR;
 
       if (!isCorrect) {
-        // 縦長・横長の歪み
-        const factor = 1 + (Math.random() > 0.5 ? 1 : -1) * (distortionMin + Math.random() * 0.25);
+        // 歪み判定（縦長・横長）
+        const factor = 1 + (Math.random() > 0.5 ? 1 : -1) * (distortionMin + Math.random() * 0.3);
         rx = baseR * factor;
         ry = baseR / factor;
       }
 
+      // カラーパレットからランダムに指定
+      const colorScheme = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+
       shapes.push({
         x, y, r: baseR, rx, ry,
         isCorrect,
+        colorScheme,
         rotation: isCorrect ? 0 : Math.random() * Math.PI
       });
     }
 
-    // 重なる順番（描画順）をシャッフルして、正円が前面に来たり奥に隠れたりするように設定
+    // 重なり順（奥・手前）をランダムにシャッフル
     shapes.sort(() => Math.random() - 0.5);
   }
 
@@ -210,19 +228,19 @@
       ctx.ellipse(0, 0, s.rx, s.ry, 0, 0, Math.PI * 2);
 
       if (isAnswered && s.isCorrect) {
-        // 正解したときは緑色で光る
-        ctx.fillStyle = 'rgba(200, 230, 201, 0.9)';
-        ctx.strokeStyle = '#2e7d32';
-        ctx.lineWidth = 5;
+        // 正解したときは鮮やかな緑色で強く発光
+        ctx.fillStyle = 'rgba(76, 175, 80, 0.9)';
+        ctx.strokeStyle = '#1b5e20';
+        ctx.lineWidth = 6;
       } else if (highlightIndex === idx) {
-        // お手つきした図形は赤っぽく表示
-        ctx.fillStyle = 'rgba(255, 205, 210, 0.9)';
-        ctx.strokeStyle = '#c62828';
-        ctx.lineWidth = 4;
+        // お手つきの図形は赤っぽく強調
+        ctx.fillStyle = 'rgba(244, 67, 54, 0.85)';
+        ctx.strokeStyle = '#b71c1c';
+        ctx.lineWidth = 5;
       } else {
-        // 重なりが見えやすいよう、少し透け感のある塗りつぶしにする
-        ctx.fillStyle = 'rgba(255, 243, 224, 0.85)';
-        ctx.strokeStyle = '#ffa726';
+        // 通常描画（各図形固有の色・半透明）
+        ctx.fillStyle = s.colorScheme.fill;
+        ctx.strokeStyle = s.colorScheme.stroke;
         ctx.lineWidth = 3.5;
       }
 
@@ -242,11 +260,10 @@
     const tapX = clientX - rect.left;
     const tapY = clientY - rect.top;
 
-    // 前面（配列の後ろ）にある図形から優先的にタップ判定
+    // 一番手前（配列の最後）にある図形から優先的にタップ判定
     let tappedIndex = -1;
     for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i];
-      // 簡易的な楕円内のヒット判定
       const dx = tapX - s.x;
       const dy = tapY - s.y;
       const cos = Math.cos(-s.rotation);
