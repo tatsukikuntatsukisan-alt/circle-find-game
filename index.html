@@ -71,7 +71,29 @@
       box-shadow: 0 3px 8px rgba(0,0,0,0.2);
     }
     .btn:active { transform: scale(0.98); }
-    
+
+    /* タイトル画面用スタイル */
+    .title-screen {
+      padding: 40px 10px;
+      text-align: center;
+    }
+    .title-screen h2 {
+      font-size: 1.6rem;
+      color: #1976d2;
+      margin-bottom: 15px;
+    }
+    .title-screen p {
+      font-size: 1.05rem;
+      color: #555;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+    .start-btn {
+      background-color: #ff9800;
+      font-size: 1.2rem;
+      padding: 14px 36px;
+    }
+
     /* クリア画面用スタイル */
     .clear-screen {
       display: none;
@@ -104,8 +126,15 @@
 <body>
 
 <div class="container">
-  <!-- ゲームプレイ画面 -->
-  <div id="gameScreen">
+  <!-- タイトル画面 -->
+  <div id="titleScreen" class="title-screen">
+    <h2>🔍 ほんとうの「円」をさがせ！</h2>
+    <p>たくさんの図形の中から、<br>1つだけある「まんまる（正円）」をみつけよう！<br>全20問のチャレンジだよ！</p>
+    <button class="btn start-btn" onclick="startGame()">ゲームスタート！</button>
+  </div>
+
+  <!-- ゲームプレイ画面（初期は非表示） -->
+  <div id="gameScreen" style="display:none;">
     <div class="header-info">
       <h1>🔍 ほんとうの「円」をさがせ！</h1>
       <div class="q-count" id="qCount">だい 1 / 20 問</div>
@@ -125,7 +154,7 @@
     <p>すべての問題が終わりました！<br>あなたの正解数は……</p>
     <div class="score-badge" id="scoreText">20問中 0問正解</div>
     <p>すごい集中力だったね！もう一度チャレンジしてみよう！</p>
-    <button class="btn" onclick="restartGame()">もういちど遊ぶ！</button>
+    <button class="btn" onclick="returnToTitle()">タイトルへもどる</button>
   </div>
 </div>
 
@@ -136,6 +165,8 @@
   const msg = document.getElementById('msg');
   const nextBtn = document.getElementById('nextBtn');
   const qCountEl = document.getElementById('qCount');
+  
+  const titleScreen = document.getElementById('titleScreen');
   const gameScreen = document.getElementById('gameScreen');
   const clearScreen = document.getElementById('clearScreen');
   const scoreText = document.getElementById('scoreText');
@@ -145,7 +176,7 @@
   let score = 0;
   let shapes = [];
   let isAnswered = false;
-  let hasMistakenInCurrentQ = false; // この問題で間違えていないか
+  let hasMistakenInCurrentQ = false;
 
   const lineColors = [
     '#f57c00', '#1976d2', '#c2185b', '#7b1fa2', '#388e3c', '#0097a7', '#e65100'
@@ -190,18 +221,23 @@
     }
   }
 
-  function restartGame() {
-    questionNumber = 0;
-    score = 0;
+  function startGame() {
+    titleScreen.style.display = 'none';
     clearScreen.style.display = 'none';
     gameScreen.style.display = 'block';
+    questionNumber = 0;
+    score = 0;
     nextQuestion();
+  }
+
+  function returnToTitle() {
+    clearScreen.style.display = 'none';
+    titleScreen.style.display = 'block';
   }
 
   function nextQuestion() {
     questionNumber++;
 
-    // 全20問を達成したらクリア画面へ
     if (questionNumber > TOTAL_QUESTIONS) {
       gameScreen.style.display = 'none';
       clearScreen.style.display = 'block';
@@ -213,7 +249,7 @@
     hasMistakenInCurrentQ = false;
     nextBtn.style.display = 'none';
     qCountEl.textContent = `だい ${questionNumber} / ${TOTAL_QUESTIONS} 問`;
-    msg.textContent = '1つだけある「まんまる（正円）」をえらんでね！';
+    msg.textContent = '1つだけあるq「まんまる（正円）」をえらんでね！'.replace('q', '');
 
     initCanvasSize();
     generateShapes();
@@ -225,10 +261,10 @@
     let count, distortionMin;
 
     if (questionNumber <= 10) {
-      count = 5 + Math.floor(Math.random() * 3); // 5〜7個
+      count = 5 + Math.floor(Math.random() * 3);
       distortionMin = 0.25;
     } else if (questionNumber <= 15) {
-      count = 9 + Math.floor(Math.random() * 3); // 9〜11個
+      count = 9 + Math.floor(Math.random() * 3);
       distortionMin = 0.15;
     } else {
       count = 14;
@@ -366,7 +402,6 @@
     isAnswered = true;
 
     if (tappedCorrect) {
-      // 一発で正解した場合のみスコア加算（途中で間違えていなければ）
       if (!hasMistakenInCurrentQ) {
         score++;
       }
@@ -374,18 +409,17 @@
       playSound('correct');
       drawShapes();
       
-      // 最後の問題の場合はボタンのテキストを変更
       if (questionNumber === TOTAL_QUESTIONS) {
         nextBtn.textContent = '結果を見る！';
       } else {
         nextBtn.textContent = 'つぎの問題へ！';
       }
     } else if (tappedWrongIndex !== -1) {
-      hasMistakenInCurrentQ = true; // 間違いフラグを立てる
+      hasMistakenInCurrentQ = true;
       msg.textContent = 'おしい！それは ちょっとだけ ゆがんでいるよ！';
       playSound('wrong');
       drawShapes(tappedWrongIndex);
-      isAnswered = false; // 間違えた場合はもう一度タップして再挑戦できるようにする
+      isAnswered = false;
       return;
     } else {
       isAnswered = false;
@@ -403,10 +437,8 @@
 
   window.addEventListener('resize', () => {
     initCanvasSize();
-    if (shapes.length > 0) drawShapes();
+    if (shapes.length > 0 && gameScreen.style.display !== 'none') drawShapes();
   });
-
-  nextQuestion();
 </script>
 
 </body>
