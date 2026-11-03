@@ -101,7 +101,6 @@
   let shapes = [];
   let isAnswered = false;
 
-  // カラフルな枠線用のカラーパレット
   const lineColors = [
     '#f57c00', // オレンジ
     '#1976d2', // ブルー
@@ -112,7 +111,6 @@
     '#e65100'  // ディープオレンジ
   ];
 
-  // Web Audio APIによる効果音
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
   function playSound(type) {
@@ -142,12 +140,13 @@
     }
   }
 
-  function resizeCanvas() {
+  function initCanvasSize() {
+    canvas.width = 500;
+    canvas.height = 375;
     const rect = wrapper.getBoundingClientRect();
-    canvas.width = rect.width > 0 ? rect.width : 500;
-    canvas.height = rect.height > 0 ? rect.height : 375;
-    if (shapes.length > 0) {
-      drawShapes();
+    if (rect.width > 0) {
+      canvas.width = rect.width;
+      canvas.height = rect.height;
     }
   }
 
@@ -158,10 +157,7 @@
     qCountEl.textContent = `だい ${questionNumber} 問`;
     msg.textContent = '1つだけある「まんまる（正円）」をえらんでね！';
 
-    const rect = wrapper.getBoundingClientRect();
-    canvas.width = rect.width > 0 ? rect.width : 500;
-    canvas.height = rect.height > 0 ? rect.height : 375;
-
+    initCanvasSize();
     generateShapes();
     drawShapes();
   }
@@ -172,7 +168,7 @@
     let distortionMin = 0.3;
 
     if (questionNumber > 10) {
-      count = 20; // 後半は線が交差して模様のように！
+      count = 20;
       distortionMin = 0.08;
     } else if (questionNumber > 5) {
       count = 13;
@@ -221,19 +217,16 @@
       ctx.ellipse(0, 0, s.rx, s.ry, 0, 0, Math.PI * 2);
 
       if (isAnswered && s.isCorrect) {
-        // 正解時は太い緑の線 ＋ 中をふんわり緑でハイライト
         ctx.fillStyle = 'rgba(76, 175, 80, 0.35)';
         ctx.strokeStyle = '#2e7d32';
         ctx.lineWidth = 6;
         ctx.fill();
       } else if (highlightIndex === idx) {
-        // お手つきの図形は赤くハイライト
         ctx.fillStyle = 'rgba(244, 67, 54, 0.3)';
         ctx.strokeStyle = '#c62828';
         ctx.lineWidth = 5;
         ctx.fill();
       } else {
-        // 通常時は塗りを一切行わず（完全に透明）、輪郭線のみ描画
         ctx.strokeStyle = s.strokeColor;
         ctx.lineWidth = 3.5;
       }
@@ -293,12 +286,13 @@
     handleTap(e);
   }, { passive: false });
 
-  window.addEventListener('resize', resizeCanvas);
-  
-  window.addEventListener('load', () => {
-    resizeCanvas();
-    nextQuestion();
+  window.addEventListener('resize', () => {
+    initCanvasSize();
+    if (shapes.length > 0) drawShapes();
   });
+
+  // ロード待ちをせず即座に1問目をスタート
+  nextQuestion();
 </script>
 
 </body>
